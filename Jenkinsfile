@@ -24,12 +24,6 @@ pipeline {
             }
         }
 
-        // Add this only after testing that build works
-        // stage('Deploy') {
-        //     steps {
-        //         sh 'scp target/*.jar ubuntu@<EC2_PUBLIC_IP>:/home/ubuntu/deployments/'
-        //         sh 'ssh ubuntu@<EC2_PUBLIC_IP> "sudo systemctl restart chalocab.service"'
-        //     }
-        // }
+
     }
 }
