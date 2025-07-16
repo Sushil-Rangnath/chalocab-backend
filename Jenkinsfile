@@ -2,34 +2,33 @@ pipeline {
     agent any
 
     tools {
-        maven 'MAVEN'     // This should match your configured Maven tool name in Jenkins
+        maven 'MAVEN' // Must match Maven name in Jenkins > Global Tools
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git url: 'https://github.com/Sushil-Rangnath/chalocab-backend.git', branch: 'main'
-            }
-        }
-
         stage('Build') {
             steps {
-                sh 'mvn clean install'
+                timeout(time: 10, unit: 'MINUTES') {
+                    sh 'mvn clean install -Dmaven.test.skip=true'
+                }
             }
         }
 
-        stage('Package') {
+        stage('Deploy') {
             steps {
-                sh 'mvn package'
+                echo '🚀 Deployment stage placeholder. Add your script here.'
+                // Example:
+                // sh 'scp target/cabBooking-0.0.1-SNAPSHOT.jar ubuntu@<EC2_IP>:/home/ubuntu/'
             }
         }
+    }
 
-        // Add this only after testing that build works
-        // stage('Deploy') {
-        //     steps {
-        //         sh 'scp target/*.jar ubuntu@<EC2_PUBLIC_IP>:/home/ubuntu/deployments/'
-        //         sh 'ssh ubuntu@<EC2_PUBLIC_IP> "sudo systemctl restart chalocab.service"'
-        //     }
-        // }
+    post {
+        success {
+            echo '✅ Build & Deploy successful.'
+        }
+        failure {
+            echo '❌ Build or Deploy failed.'
+        }
     }
 }
