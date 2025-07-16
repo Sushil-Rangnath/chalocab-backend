@@ -2,28 +2,39 @@ pipeline {
     agent any
 
     tools {
-        maven 'MAVEN'     // This should match your configured Maven tool name in Jenkins
+        maven 'MAVEN'  // Make sure Jenkins tool name matches exactly (case-sensitive)
+    }
+
+    environment {
+        // Add environment variables here if needed, like JAVA_HOME
     }
 
     stages {
-        stage('Checkout') {
+        stage('Build - Maven Clean Install') {
             steps {
-                git url: 'https://github.com/Sushil-Rangnath/chalocab-backend.git', branch: 'main'
+                timeout(time: 5, unit: 'MINUTES') {
+                    sh 'mvn clean install -DskipTests'
+                }
             }
         }
 
-        stage('Build') {
-            steps {
-                sh 'mvn clean install'
-            }
+        // Optional: Add Deployment Stage Here
+        // stage('Deploy to EC2') {
+        //     steps {
+        //         sh '''
+        //             scp -i /path/to/key.pem target/cabBooking-0.0.1-SNAPSHOT.jar ubuntu@<EC2_IP>:/home/ubuntu/
+        //             ssh -i /path/to/key.pem ubuntu@<EC2_IP> 'java -jar /home/ubuntu/cabBooking-0.0.1-SNAPSHOT.jar &'
+        //         '''
+        //     }
+        // }
+    }
+
+    post {
+        success {
+            echo ' Build completed successfully.'
         }
-
-        stage('Package') {
-            steps {
-                sh 'mvn package'
-            }
+        failure {
+            echo ' Build failed.'
         }
-
-
     }
 }
