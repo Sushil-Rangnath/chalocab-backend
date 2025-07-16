@@ -1,39 +1,35 @@
 pipeline {
     agent any
 
-    triggers {
-        githubPush()
-    }
-
     tools {
-        maven 'MAVEN'
-    }
-
-    environment {
-        MAVEN_OPTS = "-Dmaven.repo.local=${HOME}/.m2/repository"
+        maven 'MAVEN'     // This should match your configured Maven tool name in Jenkins
     }
 
     stages {
-        stage('Build without Tests') {
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
+        stage('Checkout') {
             steps {
-                echo '📦 Starting Maven build'
-                sh 'mvn clean install -Dmaven.test.skip=true'
+                git url: 'https://github.com/Sushil-Rangnath/chalocab-backend.git', branch: 'main'
             }
         }
-    }
 
-    post {
-        success {
-            echo '✅ Build successful. Tests were skipped.'
+        stage('Build') {
+            steps {
+                sh 'mvn clean install'
+            }
         }
-        failure {
-            echo '❌ Build failed.'
+
+        stage('Package') {
+            steps {
+                sh 'mvn package'
+            }
         }
-        always {
-            echo '🔁 Pipeline finished.'
-        }
+
+        // Add this only after testing that build works
+        // stage('Deploy') {
+        //     steps {
+        //         sh 'scp target/*.jar ubuntu@<EC2_PUBLIC_IP>:/home/ubuntu/deployments/'
+        //         sh 'ssh ubuntu@<EC2_PUBLIC_IP> "sudo systemctl restart chalocab.service"'
+        //     }
+        // }
     }
 }
