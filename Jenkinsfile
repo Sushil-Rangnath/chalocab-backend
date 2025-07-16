@@ -1,8 +1,12 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     tools {
-        maven 'MAVEN' // Make sure "MAVEN" is configured in Jenkins global tool config
+        maven 'MAVEN'
     }
 
     environment {
@@ -11,11 +15,12 @@ pipeline {
 
     stages {
         stage('Build without Tests') {
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
             steps {
-                timeout(time: 20, unit: 'MINUTES') {
-                    echo ' Starting Maven build with tests skipped and using local .m2 cache...'
-                    sh 'mvn clean install -Dmaven.test.skip=true'
-                }
+                echo '📦 Starting Maven build'
+                sh 'mvn clean install -Dmaven.test.skip=true'
             }
         }
     }
