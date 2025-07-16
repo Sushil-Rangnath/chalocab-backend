@@ -5,10 +5,7 @@ pipeline {
         maven 'MAVEN'  // Make sure Jenkins tool name matches exactly (case-sensitive)
     }
 
-    environment {
-        // Add environment variables here if needed, like JAVA_HOME
-    }
-
+   
     stages {
         stage('Build - Maven Clean Install') {
             steps {
