@@ -13,7 +13,7 @@ pipeline {
         stage('Build without Tests') {
             steps {
                 timeout(time: 20, unit: 'MINUTES') {
-                    echo '📦 Starting Maven build with tests skipped and using local .m2 cache...'
+                    echo ' Starting Maven build with tests skipped and using local .m2 cache...'
                     sh 'mvn clean install -Dmaven.test.skip=true'
                 }
             }
