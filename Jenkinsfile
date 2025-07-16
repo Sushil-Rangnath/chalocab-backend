@@ -6,9 +6,9 @@ pipeline {
     }
 
     stages {
-        stage('Build - Clean Install (No Tests)') {
+        stage('Build without Tests') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 10, unit: 'MINUTES') {
                     sh 'mvn clean install -Dmaven.test.skip=true'
                 }
             }
@@ -17,7 +17,7 @@ pipeline {
 
     post {
         success {
-            echo '✅ Build successful without tests.'
+            echo '✅ Build successful. Tests were skipped.'
         }
         failure {
             echo '❌ Build failed.'
