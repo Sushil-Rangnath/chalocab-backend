@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        maven 'MAVEN' // Must match Maven name in Jenkins > Global Tools
+        maven 'MAVEN' // Make sure this matches the name in Global Tools Config
     }
 
     stages {
         stage('Build') {
             steps {
-                timeout(time: 10, unit: 'MINUTES') {
+                timeout(time: 30, unit: 'MINUTES') {
                     sh 'mvn clean install -Dmaven.test.skip=true'
                 }
             }
