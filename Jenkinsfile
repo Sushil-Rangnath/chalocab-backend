@@ -2,11 +2,14 @@ pipeline {
     agent any
 
     tools {
-        maven 'MAVEN' // Make sure this matches the name in Global Tools Config
+        maven 'MAVEN' // This must match the name in Jenkins Global Tools Config
     }
 
     environment {
-        DEPLOY_DIR = '/opt/chalocab'
+        EC2_USER = 'ubuntu'
+        EC2_IP = '13.203.122.224'
+        REMOTE_DIR = '/opt/chalocab'
+        DEPLOY_SCRIPT = '/opt/chalocab/deploy.sh'
         JAR_NAME = 'cabBooking-0.0.1-SNAPSHOT.jar'
     }
 
@@ -23,14 +26,15 @@ pipeline {
             steps {
                 echo '🚀 Deploying to EC2...'
 
-                // Stop existing app (if running)
-                sh 'pkill -f $JAR_NAME || true'
+                // Copy JAR to EC2
+                sh """
+                    scp target/${JAR_NAME} ${EC2_USER}@${EC2_IP}:${REMOTE_DIR}/
+                """
 
-                // Copy the new JAR to the deploy directory
-                sh 'cp target/$JAR_NAME $DEPLOY_DIR/'
-
-                // Run your deployment script
-                sh '$DEPLOY_DIR/deploy.sh'
+                // Execute deployment script on EC2
+                sh """
+                    ssh ${EC2_USER}@${EC2_IP} 'bash ${DEPLOY_SCRIPT}'
+                """
             }
         }
     }
