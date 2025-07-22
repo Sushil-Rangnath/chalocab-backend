@@ -50,10 +50,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index", "/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/admin/dashboard").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/admin/dashboard").permitAll() // ✅ Keep specific allow ABOVE the line below
                         .requestMatchers("/api/customers/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")   // ✅ This should come AFTER dashboard
                         .requestMatchers("/api/user/**").hasRole("USER")
                         .requestMatchers("/api/drivers/**").hasRole("ADMIN")
                         .requestMatchers("/api/driver-requests/**").hasRole("ADMIN")
@@ -67,7 +66,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/trip/history/driver/**").hasRole("DRIVER")
                         .requestMatchers("/api/payments/**").hasAnyRole("ADMIN", "USER")
                         .requestMatchers("/api/notifications/**").hasAnyRole("ADMIN", "USER", "DRIVER")
-
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
