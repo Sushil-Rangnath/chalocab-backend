@@ -6,8 +6,10 @@ import com.cab.chaloCab.enums.CabType;
 import java.util.List;
 
 public interface FareService {
-    FareDTO setFare(FareDTO fareDTO);
-    FareDTO updateFare(CabType cabType, double newRate);
+    FareDTO setFare(FareDTO dto);
+    FareDTO updateFare(CabType cabType, double baseFare, double perKmFare);
     FareDTO getFareByCabType(CabType cabType);
     List<FareDTO> getAllFares();
+    void deleteFare(CabType cabType);
+    List<FareDTO> getFares(int page, int size, String sortBy, String sortDir);
 }

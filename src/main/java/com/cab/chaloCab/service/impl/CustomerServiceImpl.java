@@ -7,12 +7,11 @@ import com.cab.chaloCab.repository.CustomerRepository;
 import com.cab.chaloCab.service.CustomerService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,11 +22,11 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public CustomerResponse createCustomer(CustomerRequest request) {
-        System.out.println("====> Inside createCustomer()");
-        System.out.println("====> Email: " + request.getEmail());
-
-        if (customerRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already exists");
+        if (customerRepository.existsByEmailAndDeletedFalse(request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists.");
+        }
+        if (customerRepository.existsByPhoneAndDeletedFalse(request.getPhone())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already exists.");
         }
 
         Customer customer = Customer.builder()
@@ -35,45 +34,62 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .address(request.getAddress())
+                .deleted(false)
                 .build();
 
-        Customer saved = customerRepository.save(customer);
-        System.out.println("====> Saved ID: " + saved.getId());
-
-        return mapToResponse(saved);
+        return mapToResponse(customerRepository.save(customer));
     }
 
     @Override
     public CustomerResponse getCustomerById(Long id) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
         return mapToResponse(customer);
     }
 
     @Override
-    public List<CustomerResponse> getAllCustomers() {
-        return customerRepository.findAll().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    public Page<CustomerResponse> getAllCustomers(Pageable pageable) {
+        return customerRepository.findByDeletedFalse(pageable)
+                .map(this::mapToResponse);
     }
 
     @Override
     public CustomerResponse updateCustomer(Long id, CustomerRequest request) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
 
         customer.setName(request.getName());
         customer.setEmail(request.getEmail());
         customer.setPhone(request.getPhone());
         customer.setAddress(request.getAddress());
+
         return mapToResponse(customerRepository.save(customer));
     }
 
     @Override
     public void deleteCustomer(Long id) {
-        Customer customer = customerRepository.findById(id)
+        customerRepository.deleteById(id);
+    }
+
+    @Override
+    public void softDeleteCustomer(Long id) {
+        Customer customer = customerRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
-        customerRepository.delete(customer);
+
+        customerRepository.softDeleteCustomer(id);
+    }
+
+    @Override
+    public CustomerResponse getCustomerByPhone(String phone) {
+        Customer customer = customerRepository.findByPhoneAndDeletedFalse(phone)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+        return mapToResponse(customer);
+    }
+
+    @Override
+    public Page<CustomerResponse> searchCustomers(String keyword, Pageable pageable) {
+        return customerRepository.searchCustomers(keyword, pageable)
+                .map(this::mapToResponse);
     }
 
     private CustomerResponse mapToResponse(Customer customer) {

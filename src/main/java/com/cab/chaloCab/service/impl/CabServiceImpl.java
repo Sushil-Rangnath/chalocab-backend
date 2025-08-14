@@ -8,8 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,13 +36,22 @@ public class CabServiceImpl implements CabService {
         return convertToDTO(cabRepo.save(cab));
     }
 
-    @Override
-    public List<CabDTO> getAllCabs() {
-        return cabRepo.findAll().stream()
+    public Map<String, Object> getCabsPaginated(int page, int size) {
+        Pageable paging = PageRequest.of(page, size);
+        Page<Cab> cabPage = cabRepo.findAll(paging);
+
+        List<CabDTO> cabs = cabPage.getContent().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
-    }
 
+        Map<String, Object> response = new HashMap<>();
+        response.put("cabs", cabs);
+        response.put("currentPage", cabPage.getNumber());
+        response.put("totalItems", cabPage.getTotalElements());
+        response.put("totalPages", cabPage.getTotalPages());
+
+        return response;
+    }
     @Override
     public CabDTO updateCab(Long id, CabDTO dto) {
         Cab cab = cabRepo.findById(id)

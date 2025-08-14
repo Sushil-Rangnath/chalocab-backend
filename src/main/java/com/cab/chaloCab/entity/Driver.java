@@ -23,6 +23,8 @@ public class Driver {
     private String licenseNumber;
     private String vehicleNumber;
 
+    private String address; // ✅ Added field
+
     @Enumerated(EnumType.STRING)
     private DriverStatus status;
 }

@@ -10,6 +10,10 @@ import com.cab.chaloCab.repository.DriverRepository;
 import com.cab.chaloCab.repository.DriverRequestRepository;
 import com.cab.chaloCab.service.DriverService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -31,7 +35,7 @@ public class DriverServiceImpl implements DriverService {
         DriverRequest request = DriverRequest.builder()
                 .name(dto.getName())
                 .email(dto.getEmail())
-                .phone(dto.getPhone()) // ✅ This should match your DriverRequestDTO
+                .phone(dto.getPhone())
                 .licenseNumber(dto.getLicenseNumber())
                 .vehicleNumber(dto.getVehicleNumber())
                 .address(dto.getAddress())
@@ -39,7 +43,10 @@ public class DriverServiceImpl implements DriverService {
                 .build();
         requestRepo.save(request);
     }
-
+    @Override
+    public Page<Driver> getDriversByStatus(DriverStatus status, Pageable pageable) {
+        return driverRepo.findByStatus(status, pageable);
+    }
     @Override
     public List<DriverDTO> getAllDriverRequests() {
         return requestRepo.findAll().stream()
@@ -50,7 +57,7 @@ public class DriverServiceImpl implements DriverService {
                         .phone(r.getPhone())
                         .licenseNumber(r.getLicenseNumber())
                         .vehicleNumber(r.getVehicleNumber())
-                        .status(r.getStatus().name()) // Convert enum to String
+                        .status(r.getStatus().name())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -64,18 +71,16 @@ public class DriverServiceImpl implements DriverService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request already processed");
         }
 
-        // Save to drivers table
         Driver driver = Driver.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .phoneNumber(request.getPhone())
                 .licenseNumber(request.getLicenseNumber())
                 .vehicleNumber(request.getVehicleNumber())
-                .status(DriverStatus.ACTIVE)
+                .status(DriverStatus.APPROVED) // ✅ Now storing as APPROVED
                 .build();
         driverRepo.save(driver);
 
-        // Update original request
         request.setStatus(DriverRequestStatus.APPROVED);
         requestRepo.save(request);
     }
@@ -95,7 +100,7 @@ public class DriverServiceImpl implements DriverService {
 
     @Override
     public List<DriverDTO> getAllApprovedDrivers() {
-        return driverRepo.findAll().stream()
+        return driverRepo.findByStatus(DriverStatus.APPROVED, Pageable.unpaged()).stream()
                 .map(driver -> DriverDTO.builder()
                         .id(driver.getId())
                         .name(driver.getName())
@@ -106,5 +111,22 @@ public class DriverServiceImpl implements DriverService {
                         .status(driver.getStatus().name())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+
+    @Override
+    public Page<Driver> getApprovedDrivers(int page, int size, String search) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+
+        if (search != null && !search.trim().isEmpty()) {
+            return driverRepo.searchByStatusAndKeyword(DriverStatus.APPROVED, search.trim(), pageable);
+        } else {
+            return driverRepo.findByStatus(DriverStatus.APPROVED, pageable);
+        }
+    }
+
+    @Override
+    public Page<Driver> searchDriversByStatus(DriverStatus status, String keyword, Pageable pageable) {
+        return driverRepo.searchByStatusAndKeyword(status, keyword.trim(), pageable);
     }
 }

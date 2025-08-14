@@ -1,20 +1,22 @@
 package com.cab.chaloCab.dto;
 
-import com.cab.chaloCab.enums.PaymentMethod;
 import com.cab.chaloCab.enums.PaymentStatus;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentDTO {
     private Long id;
-    private Double amount;
-    private PaymentMethod method;
-    private PaymentStatus status;
-    private LocalDateTime timestamp;
     private Long bookingId;
+    private Long customerId;
+    private double amount;
+    private PaymentStatus status;
+    private String paymentMethod;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

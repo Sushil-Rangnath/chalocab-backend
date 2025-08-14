@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/cabs")
@@ -23,8 +24,11 @@ public class CabController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<List<CabDTO>> getAllCabs() {
-        return ResponseEntity.ok(cabService.getAllCabs());
+    public ResponseEntity<Map<String, Object>> getAllCabs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+
+        return ResponseEntity.ok(cabService.getCabsPaginated(page, size));
     }
 
     @PutMapping("/update/{id}")

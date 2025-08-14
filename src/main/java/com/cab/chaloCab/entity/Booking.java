@@ -46,4 +46,19 @@ public class Booking {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private BookingStatus status;
+
+    @Column(nullable = true)
+    private String sourceLocation;
+
+    @Column(nullable = true)
+    private String destinationLocation;
+
+    @Column(nullable = true)
+    private Boolean outsideStation;
+
+    @Column(nullable = true)
+    private Double negotiatedFare;
+    @Column(nullable = false)
+    private boolean deleted = false;
+
 }

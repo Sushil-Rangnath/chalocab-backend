@@ -7,13 +7,14 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "*")
+
 public class AdminDashboardController {
 
     @Autowired
     private AdminDashboardService dashboardService;
 
-    @GetMapping("/dashboard")
+    // Renamed to avoid conflict with AdminController
+    @GetMapping("/dashboard/summary")
     public AdminDashboardResponseDTO getDashboardSummary() {
         return dashboardService.getDashboardSummary();
     }

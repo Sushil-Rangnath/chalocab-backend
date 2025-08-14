@@ -11,3 +11,20 @@ Thumbs.db!**/src/main/**/build/
 
 ### VS Code ###
 .vscode/
+# Compiled class files
+*.class
+
+# Maven / Gradle / Build folders
+target/
+build/
+
+# IDE specific files
+.idea/
+*.iml
+*.ipr
+*.iws
+*.vscode/
+
+# Logs
+*.log
+

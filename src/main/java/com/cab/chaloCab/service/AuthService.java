@@ -7,4 +7,5 @@ import com.cab.chaloCab.dto.RegisterRequest;
 public interface AuthService {
     AuthResponse register(RegisterRequest request);
     AuthResponse authenticate(AuthRequest request);
+    AuthResponse refreshToken(String refreshToken);
 }

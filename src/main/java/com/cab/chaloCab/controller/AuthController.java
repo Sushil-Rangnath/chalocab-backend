@@ -1,19 +1,23 @@
 package com.cab.chaloCab.controller;
 
-import com.cab.chaloCab.dto.AuthRequest;
-import com.cab.chaloCab.dto.AuthResponse;
-import com.cab.chaloCab.dto.RegisterRequest;
+import com.cab.chaloCab.dto.*;
+import com.cab.chaloCab.entity.User;
+import com.cab.chaloCab.repository.UserRepository;
+import com.cab.chaloCab.security.JwtUtil;
 import com.cab.chaloCab.service.AuthService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired
-    private AuthService authService;
+    private final AuthService authService;
+    private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
@@ -23,5 +27,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
         return ResponseEntity.ok(authService.authenticate(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshRequest req) {
+        String refreshToken = req.getRefreshToken();
+        return ResponseEntity.ok(authService.refreshToken(refreshToken));
     }
 }

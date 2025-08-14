@@ -13,7 +13,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -46,8 +50,14 @@ public class BookingServiceImpl implements BookingService {
                 .pickupLocation(bookingDTO.getPickupLocation())
                 .dropoffLocation(bookingDTO.getDropoffLocation())
                 .fare(bookingDTO.getFare())
+                .outsideStation(bookingDTO.getOutsideStation())
+                .sourceLocation(bookingDTO.getSourceLocation())
+                .destinationLocation(bookingDTO.getDestinationLocation())
+                .negotiatedFare(bookingDTO.getNegotiatedFare())
                 .status(BookingStatus.REQUESTED)
                 .assignedDriverId(bookingDTO.getAssignedDriverId())
+                .bookingTime(LocalDateTime.now())
+                .deleted(false)
                 .build();
 
         Booking saved = bookingRepository.save(booking);
@@ -56,9 +66,8 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingDTO updateBookingStatus(Long bookingId, BookingStatus status) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-
         booking.setStatus(status);
         bookingRepository.save(booking);
         return convertToDTO(booking);
@@ -66,16 +75,14 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<BookingDTO> getAllBookings() {
-        return bookingRepository.findAll()
-                .stream()
+        return bookingRepository.findAllByDeletedFalse().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<BookingDTO> getBookingsByCustomerId(Long customerId) {
-        return bookingRepository.findAll()
-                .stream()
+        return bookingRepository.findAllByDeletedFalse().stream()
                 .filter(b -> b.getCustomer().getId().equals(customerId))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -83,8 +90,7 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<BookingDTO> getBookingsByDriverId(Long driverId) {
-        return bookingRepository.findAll()
-                .stream()
+        return bookingRepository.findAllByDeletedFalse().stream()
                 .filter(b -> b.getDriver() != null && b.getDriver().getId().equals(driverId))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -92,36 +98,32 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingDTO getBookingById(Long id) {
-        Booking booking = bookingRepository.findById(id)
+        Booking booking = bookingRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
         return convertToDTO(booking);
     }
 
     @Override
     public List<BookingDTO> getBookingHistoryByCustomer(Long customerId) {
-        return getBookingsByCustomerId(customerId)
-                .stream()
+        return getBookingsByCustomerId(customerId).stream()
                 .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<BookingDTO> getBookingHistoryByDriver(Long driverId) {
-        return getBookingsByDriverId(driverId)
-                .stream()
+        return getBookingsByDriverId(driverId).stream()
                 .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
                 .collect(Collectors.toList());
     }
 
     @Override
     public String completeTrip(Long bookingId, Long driverId) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-
         if (!driverId.equals(booking.getAssignedDriverId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to complete this trip");
         }
-
         booking.setStatus(BookingStatus.COMPLETED);
         bookingRepository.save(booking);
         return "Trip completed successfully";
@@ -129,19 +131,68 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public String getDropoffLocation(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
         return booking.getDropoffLocation();
     }
 
     @Override
     public Long getAssignedDriverId(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
         return booking.getAssignedDriverId();
     }
 
-    // Helper method to convert Booking to BookingDTO
+    @Override
+    public List<BookingDTO> getOutsideStationBookings() {
+        return bookingRepository.findAllByDeletedFalse().stream()
+                .filter(b -> Boolean.TRUE.equals(b.getOutsideStation()))
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public BookingDTO updateNegotiatedFare(Long bookingId, Double newFare) {
+        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+        booking.setNegotiatedFare(newFare);
+        return convertToDTO(bookingRepository.save(booking));
+    }
+
+    @Override
+    public Page<BookingDTO> getBookingsWithFilters(BookingStatus status, Boolean outsideStation,
+                                                   Long customerId, Long driverId, String keyword,
+                                                   Pageable pageable) {
+
+        List<Booking> filtered = bookingRepository.findAllByDeletedFalse().stream()
+                .filter(b -> status == null || b.getStatus() == status)
+                .filter(b -> outsideStation == null || Boolean.TRUE.equals(b.getOutsideStation()) == outsideStation)
+                .filter(b -> customerId == null || b.getCustomer().getId().equals(customerId))
+                .filter(b -> driverId == null || (b.getDriver() != null && b.getDriver().getId().equals(driverId)))
+                .filter(b -> keyword == null || keyword.isEmpty() ||
+                        b.getPickupLocation().toLowerCase().contains(keyword.toLowerCase()) ||
+                        b.getDropoffLocation().toLowerCase().contains(keyword.toLowerCase()))
+                .collect(Collectors.toList());
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filtered.size());
+        List<BookingDTO> pageContent = filtered.subList(start, end).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(pageContent, pageable, filtered.size());
+    }
+
+    @Override
+    public void softDeleteBooking(Long bookingId) {
+        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+        booking.setDeleted(true);
+        booking.setStatus(BookingStatus.CANCELLED);
+        bookingRepository.save(booking);
+    }
+
+    // Helper
     private BookingDTO convertToDTO(Booking booking) {
         return BookingDTO.builder()
                 .id(booking.getId())
@@ -150,6 +201,10 @@ public class BookingServiceImpl implements BookingService {
                 .pickupLocation(booking.getPickupLocation())
                 .dropoffLocation(booking.getDropoffLocation())
                 .fare(booking.getFare())
+                .outsideStation(booking.getOutsideStation())
+                .sourceLocation(booking.getSourceLocation())
+                .destinationLocation(booking.getDestinationLocation())
+                .negotiatedFare(booking.getNegotiatedFare())
                 .status(booking.getStatus())
                 .assignedDriverId(booking.getAssignedDriverId())
                 .build();

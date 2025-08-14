@@ -19,4 +19,10 @@ public class BookingDTO {
     private Double fare;
     private BookingStatus status;
     private Long assignedDriverId;  // Optional, useful for trip assignment
+
+
+    private String sourceLocation;
+    private String destinationLocation;
+    private Boolean outsideStation;
+    private Double negotiatedFare;
 }

@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/admin")
+@CrossOrigin(origins = "*")
 public class AdminController {
 
     @PreAuthorize("hasRole('ADMIN')") // ✅ Do NOT use hasAuthority here

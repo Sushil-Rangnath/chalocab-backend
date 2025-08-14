@@ -6,10 +6,12 @@ import com.cab.chaloCab.enums.CabType;
 import com.cab.chaloCab.repository.FareRepository;
 import com.cab.chaloCab.service.FareService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,32 +21,39 @@ public class FareServiceImpl implements FareService {
     @Autowired
     private FareRepository fareRepository;
 
-    @Override
-    public FareDTO setFare(FareDTO fareDTO) {
-        if (fareRepository.findByCabType(fareDTO.getCabType()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Fare for cab type already exists");
-        }
-
-        Fare fare = Fare.builder()
-                .cabType(fareDTO.getCabType())
-                .ratePerKm(fareDTO.getRatePerKm())
-                .build();
-
-        return mapToDTO(fareRepository.save(fare));
+    private FareDTO mapToDTO(Fare fare) {
+        return new FareDTO(fare.getId(), fare.getCabType(), fare.getBaseFare(), fare.getPerKmFare());
     }
 
     @Override
-    public FareDTO updateFare(CabType cabType, double newRate) {
-        Fare fare = fareRepository.findByCabType(cabType)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fare not found"));
+    public FareDTO setFare(FareDTO dto) {
+        if(fareRepository.findByCabTypeAndDeletedFalse(dto.getCabType()).isPresent()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fare already exists for this cab type");
+        }
+        Fare fare = new Fare();
+        fare.setCabType(dto.getCabType());
+        fare.setBaseFare(dto.getBaseFare());
+        fare.setPerKmFare(dto.getPerKmFare());
+        fare.setCreatedAt(LocalDateTime.now());
+        fare.setUpdatedAt(LocalDateTime.now());
+        fare = fareRepository.save(fare);
+        return mapToDTO(fare);
+    }
 
-        fare.setRatePerKm(newRate);
-        return mapToDTO(fareRepository.save(fare));
+    @Override
+    public FareDTO updateFare(CabType cabType, double baseFare, double perKmFare) {
+        Fare fare = fareRepository.findByCabTypeAndDeletedFalse(cabType)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fare not found"));
+        fare.setBaseFare(baseFare);
+        fare.setPerKmFare(perKmFare);
+        fare.setUpdatedAt(LocalDateTime.now());
+        fare = fareRepository.save(fare);
+        return mapToDTO(fare);
     }
 
     @Override
     public FareDTO getFareByCabType(CabType cabType) {
-        Fare fare = fareRepository.findByCabType(cabType)
+        Fare fare = fareRepository.findByCabTypeAndDeletedFalse(cabType)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fare not found"));
         return mapToDTO(fare);
     }
@@ -52,15 +61,28 @@ public class FareServiceImpl implements FareService {
     @Override
     public List<FareDTO> getAllFares() {
         return fareRepository.findAll().stream()
+                .filter(f -> !f.isDeleted())
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
-    private FareDTO mapToDTO(Fare fare) {
-        return FareDTO.builder()
-                .id(fare.getId())
-                .cabType(fare.getCabType())
-                .ratePerKm(fare.getRatePerKm())
-                .build();
+    @Override
+    public void deleteFare(CabType cabType) {
+        Fare fare = fareRepository.findByCabTypeAndDeletedFalse(cabType)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fare not found"));
+        fare.setDeleted(true);
+        fare.setUpdatedAt(LocalDateTime.now());
+        fareRepository.save(fare);
+    }
+
+    @Override
+    public List<FareDTO> getFares(int page, int size, String sortBy, String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<Fare> farePage = fareRepository.findAll(pageable);
+        return farePage.stream()
+                .filter(f -> !f.isDeleted())
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 }

@@ -15,4 +15,8 @@ public class CabDTO {
     private String color;
     private CabType type;
     private boolean available;
+    private String sourceLocation;       // nullable
+    private String destinationLocation;  // nullable
+    private Double fixedRate;            // nullable, for negotiated fare
+
 }

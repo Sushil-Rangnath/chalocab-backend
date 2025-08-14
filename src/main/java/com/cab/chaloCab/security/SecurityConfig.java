@@ -1,7 +1,7 @@
 package com.cab.chaloCab.security;
 
-import com.cab.chaloCab.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,19 +15,28 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.*;
 
-
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
 
-    // ✅ Define AuthenticationProvider bean
+    // Centralized public endpoints list
+    public static final String[] PUBLIC_ENDPOINTS = {
+            "/", "/index", "/health",
+            "/api/auth/**",
+            "/api/admin/dashboard/summary", "/api/admin/dashboard/summary/**",
+            "/api/customers/**"
+    };
+
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -36,42 +45,61 @@ public class SecurityConfig {
         return authProvider;
     }
 
-    // ✅ Define AuthenticationManager bean
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
-    // ✅ Main Security Filter Chain
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/index", "/health").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/admin/dashboard").permitAll() // ✅ Keep specific allow ABOVE the line below
-                        .requestMatchers("/api/customers/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")   // ✅ This should come AFTER dashboard
-                        .requestMatchers("/api/user/**").hasRole("USER")
+                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+
+                        // Admin-only routes
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/drivers/**").hasRole("ADMIN")
                         .requestMatchers("/api/driver-requests/**").hasRole("ADMIN")
-                        .requestMatchers("/api/bookings/**").hasAnyRole("ADMIN", "USER")
-                        .requestMatchers("/api/cabs/**").hasAnyRole("ADMIN", "USER")
                         .requestMatchers("/api/fares/**").hasRole("ADMIN")
                         .requestMatchers("/api/ride/assign/**").hasRole("ADMIN")
+
+                        // Driver-only routes
                         .requestMatchers("/api/ride/accept/**").hasRole("DRIVER")
                         .requestMatchers("/api/trip/complete/**").hasRole("DRIVER")
-                        .requestMatchers("/api/trip/history/customer/**").hasRole("USER")
                         .requestMatchers("/api/trip/history/driver/**").hasRole("DRIVER")
+
+                        // User-only routes
+                        .requestMatchers("/api/user/**").hasRole("USER")
+                        .requestMatchers("/api/trip/history/customer/**").hasRole("USER")
+
+                        // Shared routes
+                        .requestMatchers("/api/bookings/**").hasAnyRole("ADMIN", "USER")
+                        .requestMatchers("/api/cabs/**").hasAnyRole("ADMIN", "USER")
                         .requestMatchers("/api/payments/**").hasAnyRole("ADMIN", "USER")
                         .requestMatchers("/api/notifications/**").hasAnyRole("ADMIN", "USER", "DRIVER")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
+        log.info("✅ SecurityFilterChain configured successfully.");
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.addAllowedOriginPattern("*");
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        log.info("✅ CORS configuration registered.");
+        return source;
     }
 }

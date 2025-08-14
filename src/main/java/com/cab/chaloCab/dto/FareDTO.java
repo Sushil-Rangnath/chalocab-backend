@@ -1,14 +1,16 @@
 package com.cab.chaloCab.dto;
 
 import com.cab.chaloCab.enums.CabType;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class FareDTO {
     private Long id;
     private CabType cabType;
-    private double ratePerKm;
+    private double baseFare;
+    private double perKmFare;
 }
