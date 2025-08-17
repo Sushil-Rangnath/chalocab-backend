@@ -2,27 +2,32 @@ package com.cab.chaloCab.dto;
 
 import com.cab.chaloCab.enums.BookingStatus;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookingDTO {
     private Long id;
     private Long customerId;
     private Long driverId;
+    private Long assignedDriverId;
     private String pickupLocation;
-    private String dropoffLocation;
-    private Double fare;
-    private BookingStatus status;
-    private Long assignedDriverId;  // Optional, useful for trip assignment
-
-
+    private String dropLocation;
     private String sourceLocation;
     private String destinationLocation;
-    private Boolean outsideStation;
+    private boolean outsideStation;
+    private Double fare;
     private Double negotiatedFare;
+    private BookingStatus status;
+    private LocalDateTime bookingTime;
+
+    // New fields for frontend display
+    private String customerName;
+    private String customerPhone;
+    private String driverName;
+    private String driverPhone;
 }

@@ -24,5 +24,10 @@ public class User {
     private String password;
 
     @Enumerated(EnumType.STRING)
-    private Role role; // ✅ Ensure it's enum and stored as string
+    private Role role; // ✅ Stored as string
+
+    @Column(name = "phone_number", unique = true, nullable = false)
+    private String phoneNumber; // ✅ Mandatory & Unique
+    @Column(nullable = false)
+    private boolean phoneVerified = false;
 }

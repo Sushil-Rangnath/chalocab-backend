@@ -2,7 +2,6 @@ package com.cab.chaloCab.controller;
 
 import com.cab.chaloCab.dto.AuthResponse;
 import com.cab.chaloCab.entity.User;
-import com.cab.chaloCab.enums.Role;
 import com.cab.chaloCab.repository.UserRepository;
 import com.cab.chaloCab.security.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +19,7 @@ public class RefreshTokenController {
     @Autowired
     private UserRepository userRepository;
 
-  //  @PostMapping("/refresh-token")
+    //@PostMapping("/refresh-token")
     public ResponseEntity<AuthResponse> refreshToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
 
@@ -42,6 +41,8 @@ public class RefreshTokenController {
         }
 
         String newAccessToken = jwtUtil.generateToken(email);
-        return ResponseEntity.ok(new AuthResponse(newAccessToken, refreshToken, user.getRole()));
+        return ResponseEntity.ok(
+                new AuthResponse(newAccessToken, refreshToken, user.getRole(), user.isPhoneVerified())
+        );
     }
 }

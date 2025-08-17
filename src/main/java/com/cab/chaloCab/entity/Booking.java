@@ -19,11 +19,11 @@ public class Booking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id")
     private Driver driver;
 
@@ -42,7 +42,6 @@ public class Booking {
     @Column(name = "assigned_driver_id")
     private Long assignedDriverId;
 
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private BookingStatus status;
@@ -58,7 +57,26 @@ public class Booking {
 
     @Column(nullable = true)
     private Double negotiatedFare;
+
     @Column(nullable = false)
     private boolean deleted = false;
 
+    // Utility getters for DTO mapping
+    public Long getCustomerId() {
+        return customer != null ? customer.getId() : null;
+    }
+
+    public Long getDriverId() {
+        return driver != null ? driver.getId() : null;
+    }
+
+    public void setCustomerId(Long customerId) {
+        if (this.customer == null) this.customer = new Customer();
+        this.customer.setId(customerId);
+    }
+
+    public void setDriverId(Long driverId) {
+        if (this.driver == null) this.driver = new Driver();
+        this.driver.setId(driverId);
+    }
 }

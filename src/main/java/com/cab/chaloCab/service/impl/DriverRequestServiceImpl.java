@@ -1,6 +1,7 @@
 package com.cab.chaloCab.service.impl;
 
 import com.cab.chaloCab.dto.DriverRequestDTO;
+import com.cab.chaloCab.dto.DriverRequestResponseDTO;
 import com.cab.chaloCab.entity.DriverRequest;
 import com.cab.chaloCab.entity.Driver;
 import com.cab.chaloCab.enums.DriverRequestStatus;
@@ -26,7 +27,7 @@ public class DriverRequestServiceImpl implements DriverRequestService {
     private DriverRepository driverRepo;
 
     @Override
-    public DriverRequest submitRequest(DriverRequestDTO dto) {
+    public DriverRequestResponseDTO submitRequest(DriverRequestDTO dto) {
         DriverRequest request = DriverRequest.builder()
                 .name(dto.getName())
                 .email(dto.getEmail())
@@ -36,40 +37,48 @@ public class DriverRequestServiceImpl implements DriverRequestService {
                 .address(dto.getAddress())
                 .status(DriverRequestStatus.PENDING)
                 .build();
-        return requestRepo.save(request);
+
+        DriverRequest savedRequest = requestRepo.save(request);
+
+        return DriverRequestResponseDTO.builder()
+                .status("success")
+                .message("Driver request submitted successfully")
+                .driverRequest(savedRequest)
+                .build();
     }
 
-
     @Override
-    public String approveRequest(Long id) {
+    public DriverRequestResponseDTO approveRequest(Long id) {
         DriverRequest request = getRequestById(id);
 
         if (request.getStatus() != DriverRequestStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request already processed");
         }
 
-        // Step 1: Mark request as approved
         request.setStatus(DriverRequestStatus.APPROVED);
-        requestRepo.save(request); // persists the status change
+        requestRepo.save(request);
 
-        // Step 2: Create Driver from this request
         Driver driver = Driver.builder()
                 .name(request.getName())
                 .email(request.getEmail())
-                .phoneNumber(request.getPhone()) // Make sure the field names match
+                .phoneNumber(request.getPhone())
                 .licenseNumber(request.getLicenseNumber())
                 .vehicleNumber(request.getVehicleNumber())
-                .status(DriverStatus.ACTIVE)
+                .status(DriverStatus.APPROVED)
                 .build();
 
-        driverRepo.save(driver); // insert into 'drivers' table
+        driverRepo.save(driver);
 
-        return "Driver request approved and driver created";
+        return DriverRequestResponseDTO.builder()
+                .status("success")
+                .message("Driver request approved and driver created")
+                .driverRequest(request)
+                .driver(driver)
+                .build();
     }
 
-
     @Override
-    public String rejectRequest(Long id) {
+    public DriverRequestResponseDTO rejectRequest(Long id) {
         DriverRequest request = getRequestById(id);
 
         if (request.getStatus() != DriverRequestStatus.PENDING) {
@@ -79,7 +88,11 @@ public class DriverRequestServiceImpl implements DriverRequestService {
         request.setStatus(DriverRequestStatus.REJECTED);
         requestRepo.save(request);
 
-        return "Driver request rejected successfully";
+        return DriverRequestResponseDTO.builder()
+                .status("success")
+                .message("Driver request rejected successfully")
+                .driverRequest(request)
+                .build();
     }
 
     @Override
@@ -94,11 +107,16 @@ public class DriverRequestServiceImpl implements DriverRequestService {
     }
 
     @Override
-    public String updateStatus(Long id, DriverRequestStatus status) {
+    public DriverRequestResponseDTO updateStatus(Long id, DriverRequestStatus status) {
         DriverRequest request = getRequestById(id);
         request.setStatus(status);
         requestRepo.save(request);
-        return "Driver request " + status.name().toLowerCase();
+
+        return DriverRequestResponseDTO.builder()
+                .status("success")
+                .message("Driver request " + status.name().toLowerCase())
+                .driverRequest(request)
+                .build();
     }
 
     @Override

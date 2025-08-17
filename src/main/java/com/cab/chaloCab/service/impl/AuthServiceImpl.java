@@ -34,12 +34,20 @@ public class AuthServiceImpl implements AuthService {
         if (userRepo.existsByEmail(req.getEmail())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already registered");
         }
+        if (req.getPhoneNumber() == null || req.getPhoneNumber().trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phone number is required");
+        }
+        if (userRepo.existsByPhoneNumber(req.getPhoneNumber())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phone number already registered");
+        }
 
         User user = User.builder()
                 .name(req.getName())
                 .email(req.getEmail())
                 .password(passwordEncoder.encode(req.getPassword()))
                 .role(req.getRole())
+                .phoneNumber(req.getPhoneNumber())
+                .phoneVerified(false) // default to false on registration
                 .build();
 
         userRepo.save(user);
@@ -47,7 +55,7 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), user.getRole().name());
 
-        return new AuthResponse(accessToken, refreshToken, user.getRole());
+        return new AuthResponse(accessToken, refreshToken, user.getRole(), user.isPhoneVerified());
     }
 
     @Override
@@ -66,7 +74,7 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), user.getRole().name());
 
-        return new AuthResponse(accessToken, refreshToken, user.getRole());
+        return new AuthResponse(accessToken, refreshToken, user.getRole(), user.isPhoneVerified());
     }
 
     @Override
@@ -79,7 +87,6 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        // load UserDetails for extra validation
         UserDetails userDetails = userDetailsService.loadUserByUsername(email);
         if (!jwtUtil.validateToken(refreshToken, userDetails)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
@@ -88,6 +95,6 @@ public class AuthServiceImpl implements AuthService {
         String newAccess = jwtUtil.generateToken(email, user.getRole().name());
         String newRefresh = jwtUtil.generateRefreshToken(email, user.getRole().name());
 
-        return new AuthResponse(newAccess, newRefresh, user.getRole());
+        return new AuthResponse(newAccess, newRefresh, user.getRole(), user.isPhoneVerified());
     }
 }

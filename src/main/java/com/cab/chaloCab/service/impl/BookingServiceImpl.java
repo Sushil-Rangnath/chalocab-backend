@@ -9,204 +9,221 @@ import com.cab.chaloCab.repository.BookingRepository;
 import com.cab.chaloCab.repository.CustomerRepository;
 import com.cab.chaloCab.repository.DriverRepository;
 import com.cab.chaloCab.service.BookingService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class BookingServiceImpl implements BookingService {
 
-    @Autowired
-    private BookingRepository bookingRepository;
-
-    @Autowired
-    private CustomerRepository customerRepository;
-
-    @Autowired
-    private DriverRepository driverRepository;
+    private final BookingRepository bookingRepository;
+    private final CustomerRepository customerRepository;
+    private final DriverRepository driverRepository;
 
     @Override
     public BookingDTO createBooking(BookingDTO bookingDTO) {
-        Customer customer = customerRepository.findById(bookingDTO.getCustomerId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
-
-        Driver driver = null;
-        if (bookingDTO.getDriverId() != null) {
-            driver = driverRepository.findById(bookingDTO.getDriverId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
-        }
-
-        Booking booking = Booking.builder()
-                .customer(customer)
-                .driver(driver)
-                .pickupLocation(bookingDTO.getPickupLocation())
-                .dropoffLocation(bookingDTO.getDropoffLocation())
-                .fare(bookingDTO.getFare())
-                .outsideStation(bookingDTO.getOutsideStation())
-                .sourceLocation(bookingDTO.getSourceLocation())
-                .destinationLocation(bookingDTO.getDestinationLocation())
-                .negotiatedFare(bookingDTO.getNegotiatedFare())
-                .status(BookingStatus.REQUESTED)
-                .assignedDriverId(bookingDTO.getAssignedDriverId())
-                .bookingTime(LocalDateTime.now())
-                .deleted(false)
-                .build();
-
+        Booking booking = mapToEntity(bookingDTO);
         Booking saved = bookingRepository.save(booking);
-        return convertToDTO(saved);
+        return mapToDTO(saved);
     }
 
     @Override
-    public BookingDTO updateBookingStatus(Long bookingId, BookingStatus status) {
-        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
+    public BookingDTO getBookingById(Long id) {
+        Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        booking.setStatus(status);
-        bookingRepository.save(booking);
-        return convertToDTO(booking);
+        return mapToDTO(booking);
     }
 
     @Override
     public List<BookingDTO> getAllBookings() {
-        return bookingRepository.findAllByDeletedFalse().stream()
-                .map(this::convertToDTO)
+        return bookingRepository.findAll()
+                .stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<BookingDTO> getBookingsByCustomerId(Long customerId) {
-        return bookingRepository.findAllByDeletedFalse().stream()
-                .filter(b -> b.getCustomer().getId().equals(customerId))
-                .map(this::convertToDTO)
+        return bookingRepository.findByCustomer_Id(customerId)
+                .stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<BookingDTO> getBookingsByDriverId(Long driverId) {
-        return bookingRepository.findAllByDeletedFalse().stream()
-                .filter(b -> b.getDriver() != null && b.getDriver().getId().equals(driverId))
-                .map(this::convertToDTO)
+        return bookingRepository.findByDriver_Id(driverId)
+                .stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public BookingDTO getBookingById(Long id) {
-        Booking booking = bookingRepository.findByIdAndDeletedFalse(id)
+    public List<BookingDTO> getBookingsByAssignedDriverId(Long driverId) {
+        return bookingRepository.findByAssignedDriverId(driverId)
+                .stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public BookingDTO updateBooking(Long id, BookingDTO bookingDTO) {
+        Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        return convertToDTO(booking);
-    }
 
-    @Override
-    public List<BookingDTO> getBookingHistoryByCustomer(Long customerId) {
-        return getBookingsByCustomerId(customerId).stream()
-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
-                .collect(Collectors.toList());
-    }
+        booking.setPickupLocation(bookingDTO.getPickupLocation());
+        booking.setDropoffLocation(bookingDTO.getDropLocation());
+        booking.setSourceLocation(bookingDTO.getSourceLocation());
+        booking.setDestinationLocation(bookingDTO.getDestinationLocation());
+        booking.setOutsideStation(bookingDTO.isOutsideStation());
+        booking.setFare(bookingDTO.getFare());
+        booking.setNegotiatedFare(bookingDTO.getNegotiatedFare());
+        booking.setStatus(bookingDTO.getStatus());
+        booking.setAssignedDriverId(bookingDTO.getAssignedDriverId());
 
-    @Override
-    public List<BookingDTO> getBookingHistoryByDriver(Long driverId) {
-        return getBookingsByDriverId(driverId).stream()
-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public String completeTrip(Long bookingId, Long driverId) {
-        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        if (!driverId.equals(booking.getAssignedDriverId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to complete this trip");
+        if (bookingDTO.getDriverId() != null) {
+            Driver driver = driverRepository.findById(bookingDTO.getDriverId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+            booking.setDriver(driver);
         }
-        booking.setStatus(BookingStatus.COMPLETED);
-        bookingRepository.save(booking);
-        return "Trip completed successfully";
+
+        Booking updated = bookingRepository.save(booking);
+        return mapToDTO(updated);
     }
 
-    @Override
-    public String getDropoffLocation(Long bookingId) {
-        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        return booking.getDropoffLocation();
-    }
 
     @Override
-    public Long getAssignedDriverId(Long bookingId) {
-        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
+    public void deleteBooking(Long id) {
+        Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        return booking.getAssignedDriverId();
+        bookingRepository.delete(booking);
     }
 
     @Override
     public List<BookingDTO> getOutsideStationBookings() {
-        return bookingRepository.findAllByDeletedFalse().stream()
-                .filter(b -> Boolean.TRUE.equals(b.getOutsideStation()))
-                .map(this::convertToDTO)
+        return bookingRepository.findByOutsideStationTrue()
+                .stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public BookingDTO updateNegotiatedFare(Long bookingId, Double newFare) {
-        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
+    public Double calculateTotalRevenue() {
+        return bookingRepository.findAll()
+                .stream()
+                .mapToDouble(b -> b.getNegotiatedFare() != null ? b.getNegotiatedFare() : b.getFare())
+                .sum();
+    }
+
+    // Utility methods
+    private BookingDTO mapToDTO(Booking booking) {
+        BookingDTO dto = new BookingDTO();
+        dto.setId(booking.getId());
+        dto.setCustomerId(booking.getCustomerId());
+        dto.setDriverId(booking.getDriverId());
+        dto.setAssignedDriverId(booking.getAssignedDriverId());
+        dto.setPickupLocation(booking.getPickupLocation());
+        dto.setDropLocation(booking.getDropoffLocation());
+        dto.setSourceLocation(booking.getSourceLocation());
+        dto.setDestinationLocation(booking.getDestinationLocation());
+        dto.setOutsideStation(booking.getOutsideStation());
+        dto.setFare(booking.getFare());
+        dto.setNegotiatedFare(booking.getNegotiatedFare());
+        dto.setStatus(booking.getStatus());
+
+        // Populate customer info
+        if (booking.getCustomerId() != null) {
+            customerRepository.findById(booking.getCustomerId()).ifPresent(c -> {
+                dto.setCustomerName(c.getName());
+                dto.setCustomerPhone(c.getPhone());
+            });
+        }
+
+        // Populate driver info
+        if (booking.getDriverId() != null) {
+            driverRepository.findById(booking.getDriverId()).ifPresent(d -> {
+                dto.setDriverName(d.getName());
+                dto.setDriverPhone(d.getPhoneNumber());
+            });
+        }
+
+        return dto;
+    }
+
+    private Booking mapToEntity(BookingDTO dto) {
+        Booking booking = new Booking();
+        booking.setId(dto.getId());
+        booking.setCustomerId(dto.getCustomerId());
+        booking.setDriverId(dto.getDriverId());
+        booking.setAssignedDriverId(dto.getAssignedDriverId());
+        booking.setPickupLocation(dto.getPickupLocation());
+        booking.setOutsideStation(dto.isOutsideStation());
+        booking.setSourceLocation(dto.getSourceLocation());
+        booking.setDestinationLocation(dto.getDestinationLocation());
+        booking.setOutsideStation(dto.isOutsideStation());
+        booking.setFare(dto.getFare());
+        booking.setNegotiatedFare(dto.getNegotiatedFare());
+        booking.setStatus(dto.getStatus() != null ? dto.getStatus() : BookingStatus.REQUESTED);
+        return booking;
+    }
+
+    @Override
+    public BookingDTO completeTrip(Long bookingId, Long driverId) {
+        Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        booking.setNegotiatedFare(newFare);
-        return convertToDTO(bookingRepository.save(booking));
+
+        if (booking.getAssignedDriverId() == null || !booking.getAssignedDriverId().equals(driverId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Driver not assigned to this booking");
+        }
+
+        booking.setStatus(BookingStatus.COMPLETED);
+        Booking updated = bookingRepository.save(booking);
+        return mapToDTO(updated);
     }
 
     @Override
-    public Page<BookingDTO> getBookingsWithFilters(BookingStatus status, Boolean outsideStation,
-                                                   Long customerId, Long driverId, String keyword,
-                                                   Pageable pageable) {
-
-        List<Booking> filtered = bookingRepository.findAllByDeletedFalse().stream()
-                .filter(b -> status == null || b.getStatus() == status)
-                .filter(b -> outsideStation == null || Boolean.TRUE.equals(b.getOutsideStation()) == outsideStation)
-                .filter(b -> customerId == null || b.getCustomer().getId().equals(customerId))
-                .filter(b -> driverId == null || (b.getDriver() != null && b.getDriver().getId().equals(driverId)))
-                .filter(b -> keyword == null || keyword.isEmpty() ||
-                        b.getPickupLocation().toLowerCase().contains(keyword.toLowerCase()) ||
-                        b.getDropoffLocation().toLowerCase().contains(keyword.toLowerCase()))
-                .collect(Collectors.toList());
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), filtered.size());
-        List<BookingDTO> pageContent = filtered.subList(start, end).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(pageContent, pageable, filtered.size());
+    public List<BookingDTO> getBookingHistoryByCustomer(Long customerId, Pageable pageable) {
+        Page<Booking> bookingsPage = bookingRepository.findByCustomer_IdAndDeletedFalse(customerId, pageable);
+        return bookingsPage.stream()
+                .map(this::mapToDTO)
+                .toList();
     }
 
     @Override
-    public void softDeleteBooking(Long bookingId) {
-        Booking booking = bookingRepository.findByIdAndDeletedFalse(bookingId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        booking.setDeleted(true);
-        booking.setStatus(BookingStatus.CANCELLED);
-        bookingRepository.save(booking);
+    public List<BookingDTO> getBookingHistoryByDriver(Long driverId, Pageable pageable) {
+        Page<Booking> bookingsPage = bookingRepository.findByDriver_IdAndDeletedFalse(driverId, pageable);
+        return bookingsPage.stream()
+                .map(this::mapToDTO)
+                .toList();
     }
 
-    // Helper
-    private BookingDTO convertToDTO(Booking booking) {
-        return BookingDTO.builder()
-                .id(booking.getId())
-                .customerId(booking.getCustomer().getId())
-                .driverId(booking.getDriver() != null ? booking.getDriver().getId() : null)
-                .pickupLocation(booking.getPickupLocation())
-                .dropoffLocation(booking.getDropoffLocation())
-                .fare(booking.getFare())
-                .outsideStation(booking.getOutsideStation())
-                .sourceLocation(booking.getSourceLocation())
-                .destinationLocation(booking.getDestinationLocation())
-                .negotiatedFare(booking.getNegotiatedFare())
-                .status(booking.getStatus())
-                .assignedDriverId(booking.getAssignedDriverId())
-                .build();
+    @Override
+    public Page<Booking> getAllBookings(Pageable pageable) {
+        return bookingRepository.findByDeletedFalse(pageable);
     }
+
+
+    @Override
+    public List<BookingDTO> getBookingHistoryByCustomer(Long customerId) {
+        List<Booking> bookings = bookingRepository.findByCustomer_IdAndDeletedFalse(customerId);
+        return bookings.stream().map(this::mapToDTO).toList();
+    }
+
+    @Override
+    public List<BookingDTO> getBookingHistoryByDriver(Long driverId) {
+        List<Booking> bookings = bookingRepository.findByDriver_IdAndDeletedFalse(driverId);
+        return bookings.stream().map(this::mapToDTO).toList();
+    }
+
+
+
 }

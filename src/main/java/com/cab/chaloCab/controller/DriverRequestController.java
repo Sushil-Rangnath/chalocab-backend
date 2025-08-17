@@ -1,6 +1,7 @@
 package com.cab.chaloCab.controller;
 
 import com.cab.chaloCab.dto.DriverRequestDTO;
+import com.cab.chaloCab.dto.DriverRequestResponseDTO;
 import com.cab.chaloCab.entity.DriverRequest;
 import com.cab.chaloCab.service.DriverRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,7 @@ public class DriverRequestController {
 
     @PostMapping("/submit")
     @PreAuthorize("hasRole('CUSTOMER') or hasRole('ADMIN')")
-    public DriverRequest submitRequest(@RequestBody DriverRequestDTO dto) {
+    public DriverRequestResponseDTO submitRequest(@RequestBody DriverRequestDTO dto) {
         return driverRequestService.submitRequest(dto);
     }
 
@@ -30,13 +31,19 @@ public class DriverRequestController {
 
     @PostMapping("/approve/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public String approve(@PathVariable Long id) {
+    public DriverRequestResponseDTO approve(@PathVariable Long id) {
         return driverRequestService.approveRequest(id);
     }
 
     @PostMapping("/reject/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public String reject(@PathVariable Long id) {
+    public DriverRequestResponseDTO reject(@PathVariable Long id) {
         return driverRequestService.rejectRequest(id);
+    }
+
+    @PostMapping("/status/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public DriverRequestResponseDTO updateStatus(@PathVariable Long id, @RequestParam String status) {
+        return driverRequestService.updateStatus(id, Enum.valueOf(com.cab.chaloCab.enums.DriverRequestStatus.class, status.toUpperCase()));
     }
 }

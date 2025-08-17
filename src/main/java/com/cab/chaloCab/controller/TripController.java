@@ -15,20 +15,24 @@ public class TripController {
     @Autowired
     private BookingService bookingService;
 
+    // Complete a trip and return the updated BookingDTO
     @PostMapping("/complete/{bookingId}/driver/{driverId}")
-    public ResponseEntity<String> completeTrip(
+    public ResponseEntity<BookingDTO> completeTrip(
             @PathVariable Long bookingId,
             @PathVariable Long driverId) {
-        return ResponseEntity.ok(bookingService.completeTrip(bookingId, driverId));
+        BookingDTO completedBooking = bookingService.completeTrip(bookingId, driverId);
+        return ResponseEntity.ok(completedBooking);
     }
 
     @GetMapping("/history/customer/{customerId}")
     public ResponseEntity<List<BookingDTO>> getCustomerHistory(@PathVariable Long customerId) {
-        return ResponseEntity.ok(bookingService.getBookingHistoryByCustomer(customerId));
+        List<BookingDTO> history = bookingService.getBookingHistoryByCustomer(customerId);
+        return ResponseEntity.ok(history);
     }
 
     @GetMapping("/history/driver/{driverId}")
     public ResponseEntity<List<BookingDTO>> getDriverHistory(@PathVariable Long driverId) {
-        return ResponseEntity.ok(bookingService.getBookingHistoryByDriver(driverId));
+        List<BookingDTO> history = bookingService.getBookingHistoryByDriver(driverId);
+        return ResponseEntity.ok(history);
     }
 }
