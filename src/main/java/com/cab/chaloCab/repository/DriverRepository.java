@@ -7,9 +7,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.Optional;
+
 public interface DriverRepository extends JpaRepository<Driver, Long> {
 
     Page<Driver> findByStatus(DriverStatus status, Pageable pageable);
+    Optional<Driver> findByPhoneNumber(String phone);
 
     @Query("SELECT d FROM Driver d " +
             "WHERE d.status = :status AND " +

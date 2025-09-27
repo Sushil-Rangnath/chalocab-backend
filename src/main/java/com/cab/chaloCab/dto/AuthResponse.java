@@ -1,15 +1,32 @@
 package com.cab.chaloCab.dto;
 
 import com.cab.chaloCab.enums.Role;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+/**
+ * AuthResponse represents the authentication response returned to the client,
+ * including access/refresh tokens, role, and phone verification status.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AuthResponse {
+
     private String accessToken;
     private String refreshToken;
     private Role role;
+    @Builder.Default
     private String tokenType = "Bearer";
     private boolean phoneVerified; // ✅ new field
+    private String message;        // optional field for error messages like "Invalid OTP"
 
-    public AuthResponse() {}
+    // --------------------------
+    // Legacy constructors for backward compatibility
+    // --------------------------
 
     // Main constructor with phone verification
     public AuthResponse(String accessToken, String refreshToken, Role role, boolean phoneVerified) {
@@ -28,20 +45,4 @@ public class AuthResponse {
     public AuthResponse(String accessToken, String refreshToken) {
         this(accessToken, refreshToken, null, false);
     }
-
-    // getters & setters
-    public String getAccessToken() { return accessToken; }
-    public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
-
-    public String getRefreshToken() { return refreshToken; }
-    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
-
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
-
-    public String getTokenType() { return tokenType; }
-    public void setTokenType(String tokenType) { this.tokenType = tokenType; }
-
-    public boolean isPhoneVerified() { return phoneVerified; }
-    public void setPhoneVerified(boolean phoneVerified) { this.phoneVerified = phoneVerified; }
 }

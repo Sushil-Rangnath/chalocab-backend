@@ -2,7 +2,6 @@ package com.cab.chaloCab.service.impl;
 
 import com.cab.chaloCab.dto.FareDTO;
 import com.cab.chaloCab.entity.Fare;
-import com.cab.chaloCab.enums.CabType;
 import com.cab.chaloCab.repository.FareRepository;
 import com.cab.chaloCab.service.FareService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +26,7 @@ public class FareServiceImpl implements FareService {
 
     @Override
     public FareDTO setFare(FareDTO dto) {
-        if(fareRepository.findByCabTypeAndDeletedFalse(dto.getCabType()).isPresent()){
+        if (fareRepository.findByCabTypeAndDeletedFalse(dto.getCabType()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fare already exists for this cab type");
         }
         Fare fare = new Fare();
@@ -41,7 +40,7 @@ public class FareServiceImpl implements FareService {
     }
 
     @Override
-    public FareDTO updateFare(CabType cabType, double baseFare, double perKmFare) {
+    public FareDTO updateFare(String cabType, double baseFare, double perKmFare) {
         Fare fare = fareRepository.findByCabTypeAndDeletedFalse(cabType)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fare not found"));
         fare.setBaseFare(baseFare);
@@ -52,7 +51,7 @@ public class FareServiceImpl implements FareService {
     }
 
     @Override
-    public FareDTO getFareByCabType(CabType cabType) {
+    public FareDTO getFareByCabType(String cabType) {
         Fare fare = fareRepository.findByCabTypeAndDeletedFalse(cabType)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fare not found"));
         return mapToDTO(fare);
@@ -67,7 +66,7 @@ public class FareServiceImpl implements FareService {
     }
 
     @Override
-    public void deleteFare(CabType cabType) {
+    public void deleteFare(String cabType) {
         Fare fare = fareRepository.findByCabTypeAndDeletedFalse(cabType)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fare not found"));
         fare.setDeleted(true);

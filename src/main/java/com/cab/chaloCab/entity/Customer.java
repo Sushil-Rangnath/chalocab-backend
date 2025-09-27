@@ -1,5 +1,6 @@
 package com.cab.chaloCab.entity;
 
+import com.cab.chaloCab.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,17 +15,30 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
 
-    @Column(unique = true, nullable = false)
-    private String email;
+    @Column(unique = true, nullable = true)
+    private String email; // optional for Flutter, unique if provided
 
     @Column(unique = true, nullable = false)
-    private String phone; // Unique for search
+    private String phone; // mandatory, unique for search/login
 
-    private String address;
+    private String address; // optional
 
     @Builder.Default
     @Column(nullable = false)
-    private boolean deleted = false; // For soft delete
+    private boolean deleted = false; // soft delete
+
+    // Optionally, for storing JWT refresh token reference
+    private String refreshToken;
+
+    private boolean active = true; // account activation/deactivation
+
+    // Optional: Track last login time or OTP info
+    private String lastOtp;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role = Role.CUSTOMER;
 }

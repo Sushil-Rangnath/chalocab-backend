@@ -5,6 +5,8 @@ import com.cab.chaloCab.dto.DriverRequestResponseDTO;
 import com.cab.chaloCab.entity.DriverRequest;
 import com.cab.chaloCab.service.DriverRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,33 +19,73 @@ public class DriverRequestController {
     @Autowired
     private DriverRequestService driverRequestService;
 
-    @PostMapping("/submit")
-    @PreAuthorize("hasRole('CUSTOMER') or hasRole('ADMIN')")
-    public DriverRequestResponseDTO submitRequest(@RequestBody DriverRequestDTO dto) {
-        return driverRequestService.submitRequest(dto);
+    /**
+     * Submit or update a driver registration request.
+     * Returns 201 Created when a new request is created.
+     */
+    @PostMapping(value = "/submit", consumes = "application/json", produces = "application/json")
+
+    public ResponseEntity<DriverRequestResponseDTO> submitRequest(@RequestBody DriverRequestDTO dto) {
+        if (dto == null) {
+            return ResponseEntity.badRequest()
+                    .body(DriverRequestResponseDTO.builder()
+                            .status("failed")
+                            .message("Request body cannot be null")
+                            .build());
+        }
+
+        DriverRequestResponseDTO resp = driverRequestService.submitRequest(dto);
+        // If service returns requestId (new resource), return 201, else 200
+        if (resp.getRequestId() != null) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(resp);
+        } else {
+            return ResponseEntity.ok(resp);
+        }
     }
 
-    @GetMapping("/pending")
+    /**
+     * Admin: list all pending driver requests.
+     */
+    @GetMapping(value = "/pending", produces = "application/json")
     @PreAuthorize("hasRole('ADMIN')")
-    public List<DriverRequest> getPendingRequests() {
-        return driverRequestService.getAllPendingRequests();
+    public ResponseEntity<List<DriverRequest>> getPendingRequests() {
+        List<DriverRequest> pending = driverRequestService.getAllPendingRequests();
+        return ResponseEntity.ok(pending);
     }
 
-    @PostMapping("/approve/{id}")
+    /**
+     * Admin: approve a pending driver request (creates driver row).
+     */
+    @PostMapping(value = "/approve/{id}", produces = "application/json")
     @PreAuthorize("hasRole('ADMIN')")
-    public DriverRequestResponseDTO approve(@PathVariable Long id) {
-        return driverRequestService.approveRequest(id);
+    public ResponseEntity<DriverRequestResponseDTO> approve(@PathVariable Long id) {
+        DriverRequestResponseDTO resp = driverRequestService.approveRequest(id);
+        return ResponseEntity.ok(resp);
     }
 
-    @PostMapping("/reject/{id}")
+    /**
+     * Admin: reject a pending driver request.
+     */
+    @PostMapping(value = "/reject/{id}", produces = "application/json")
     @PreAuthorize("hasRole('ADMIN')")
-    public DriverRequestResponseDTO reject(@PathVariable Long id) {
-        return driverRequestService.rejectRequest(id);
+    public ResponseEntity<DriverRequestResponseDTO> reject(@PathVariable Long id) {
+        DriverRequestResponseDTO resp = driverRequestService.rejectRequest(id);
+        return ResponseEntity.ok(resp);
     }
 
-    @PostMapping("/status/{id}")
+    /**
+     * Admin: set an explicit status for a request (PENDING/APPROVED/REJECTED).
+     * Example: POST /api/driver-requests/status/123?status=APPROVED
+     */
+    @PostMapping(value = "/status/{id}", produces = "application/json")
     @PreAuthorize("hasRole('ADMIN')")
-    public DriverRequestResponseDTO updateStatus(@PathVariable Long id, @RequestParam String status) {
-        return driverRequestService.updateStatus(id, Enum.valueOf(com.cab.chaloCab.enums.DriverRequestStatus.class, status.toUpperCase()));
+    public ResponseEntity<DriverRequestResponseDTO> updateStatus(@PathVariable Long id,
+                                                                 @RequestParam String status) {
+        // Service will throw ResponseStatusException if status invalid or request not found
+        DriverRequestResponseDTO resp = driverRequestService.updateStatus(
+                id,
+                Enum.valueOf(com.cab.chaloCab.enums.DriverRequestStatus.class, status.toUpperCase())
+        );
+        return ResponseEntity.ok(resp);
     }
 }

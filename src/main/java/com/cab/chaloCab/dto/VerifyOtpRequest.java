@@ -1,5 +1,6 @@
 package com.cab.chaloCab.dto;
 
+
 import lombok.*;
 
 @Getter
@@ -7,9 +8,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DriverRequest {
+public class VerifyOtpRequest {
+    private String phone;
     private String name;
-    private String licenseNumber;
-    private String phoneNumber;
-    private boolean available;
+    private String otp;
+
 }

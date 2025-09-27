@@ -1,6 +1,5 @@
 package com.cab.chaloCab.entity;
 
-import com.cab.chaloCab.enums.CabType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,9 +18,9 @@ public class Fare {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, unique = true)
-    private CabType cabType;
+    // Changed from Enum to String
+    @Column(name = "cab_type", nullable = false, unique = true, length = 50)
+    private String cabType;
 
     @Column(nullable = false)
     private double baseFare;

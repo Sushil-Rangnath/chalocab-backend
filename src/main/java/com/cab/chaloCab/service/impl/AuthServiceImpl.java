@@ -3,30 +3,41 @@ package com.cab.chaloCab.service.impl;
 import com.cab.chaloCab.dto.AuthRequest;
 import com.cab.chaloCab.dto.AuthResponse;
 import com.cab.chaloCab.dto.RegisterRequest;
+import com.cab.chaloCab.entity.Customer;
+import com.cab.chaloCab.entity.Driver;
 import com.cab.chaloCab.entity.User;
+import com.cab.chaloCab.repository.CustomerRepository;
+import com.cab.chaloCab.repository.DriverRepository;
 import com.cab.chaloCab.repository.UserRepository;
 import com.cab.chaloCab.security.JwtUtil;
 import com.cab.chaloCab.service.AuthService;
+import com.cab.chaloCab.service.RefreshTokenService;
+import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Instant;
+import java.util.Date;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private final UserRepository userRepo;
+    private final UserRepository userRepo;              // Admins
+    private final CustomerRepository customerRepository; // Customers
+    private final DriverRepository driverRepository;     // Drivers
+
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
-    private final UserDetailsService userDetailsService;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     @Transactional
@@ -47,13 +58,18 @@ public class AuthServiceImpl implements AuthService {
                 .password(passwordEncoder.encode(req.getPassword()))
                 .role(req.getRole())
                 .phoneNumber(req.getPhoneNumber())
-                .phoneVerified(false) // default to false on registration
+                .phoneVerified(false)
                 .build();
 
         userRepo.save(user);
 
-        String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), user.getRole().name());
+        String subject = user.getPhoneNumber();
+        String accessToken = jwtUtil.generateToken(subject, user.getRole().name());
+        String refreshToken = jwtUtil.generateRefreshToken(subject, user.getRole().name());
+
+        Date refreshExpDate = jwtUtil.extractClaim(refreshToken, Claims::getExpiration);
+        Instant refreshExpiresAt = refreshExpDate.toInstant();
+        refreshTokenService.createRefreshToken(String.valueOf(user.getId()), refreshToken, refreshExpiresAt, "registration");
 
         return new AuthResponse(accessToken, refreshToken, user.getRole(), user.isPhoneVerified());
     }
@@ -71,30 +87,80 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), user.getRole().name());
+        String subject = user.getEmail();
+        String accessToken = jwtUtil.generateToken(subject, user.getRole().name());
+        String refreshToken = jwtUtil.generateRefreshToken(subject, user.getRole().name());
+
+        Date refreshExpDate = jwtUtil.extractClaim(refreshToken, Claims::getExpiration);
+        Instant refreshExpiresAt = refreshExpDate.toInstant();
+        refreshTokenService.createRefreshToken(String.valueOf(user.getId()), refreshToken, refreshExpiresAt, "admin-login");
 
         return new AuthResponse(accessToken, refreshToken, user.getRole(), user.isPhoneVerified());
     }
 
     @Override
     public AuthResponse refreshToken(String refreshToken) {
-        if (refreshToken == null || !jwtUtil.validateToken(refreshToken) || jwtUtil.isTokenExpired(refreshToken)) {
+        if (refreshToken == null || !jwtUtil.validateToken(refreshToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token");
         }
 
-        String email = jwtUtil.extractUsername(refreshToken);
-        User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        Optional<com.cab.chaloCab.entity.RefreshToken> persisted = refreshTokenService.findByRawToken(refreshToken);
+        if (persisted.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token revoked or not recognized");
+        }
+        com.cab.chaloCab.entity.RefreshToken current = persisted.get();
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-        if (!jwtUtil.validateToken(refreshToken, userDetails)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        // Subject from token (usually phone/email)
+        String subject = jwtUtil.getSubjectFromToken(refreshToken);
+
+        // Try to resolve user across Admin (User), Customer, Driver
+        String roleName = null;
+        Long userId = null;
+        String subjectForToken = null;
+
+        Optional<User> adminOpt = userRepo.findByPhoneNumber(subject);
+        if (adminOpt.isEmpty()) {
+            adminOpt = userRepo.findByEmail(subject);
+        }
+        if (adminOpt.isPresent()) {
+            User u = adminOpt.get();
+            userId = u.getId();
+            subjectForToken = u.getEmail(); // admin subject = email
+            roleName = u.getRole().name();
+        } else {
+            Optional<Customer> custOpt = customerRepository.findByPhone(subject);
+            if (custOpt.isPresent()) {
+                Customer c = custOpt.get();
+                userId = c.getId();
+                subjectForToken = c.getPhone();
+                roleName = c.getRole().name();
+            } else {
+                Optional<Driver> drvOpt = driverRepository.findByPhoneNumber(subject);
+                if (drvOpt.isPresent()) {
+                    Driver d = drvOpt.get();
+                    userId = d.getId();
+                    subjectForToken = d.getPhoneNumber();
+                    // FIX: use name() to get String role
+                    roleName = d.getRole();
+                } else {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+                }
+            }
         }
 
-        String newAccess = jwtUtil.generateToken(email, user.getRole().name());
-        String newRefresh = jwtUtil.generateRefreshToken(email, user.getRole().name());
+        // rotate: revoke current persisted token
+        refreshTokenService.revokeToken(current.getId());
 
-        return new AuthResponse(newAccess, newRefresh, user.getRole(), user.isPhoneVerified());
+        // create new refresh token (raw) and persist it
+        String newRefresh = jwtUtil.generateRefreshToken(subjectForToken, roleName);
+        Date exp = jwtUtil.extractClaim(newRefresh, Claims::getExpiration);
+        Instant expiresAt = (exp != null) ? exp.toInstant() : Instant.now().plusSeconds(60 * 60 * 24 * 30); // fallback 30d
+        refreshTokenService.createRefreshToken(String.valueOf(userId), newRefresh, expiresAt, current.getDeviceInfo());
+
+        // New access token
+        String newAccess = jwtUtil.generateToken(subjectForToken, roleName);
+
+        return new AuthResponse(newAccess, newRefresh, com.cab.chaloCab.enums.Role.valueOf(roleName), true);
     }
+
 }

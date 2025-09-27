@@ -1,18 +1,17 @@
 package com.cab.chaloCab.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 @Component
 public class JwtUtil {
@@ -21,7 +20,7 @@ public class JwtUtil {
     private String secret;
 
     @Value("${jwt.expirationMs}")
-    private long jwtExpirationMs;
+    private long expirationMs;
 
     @Value("${jwt.refreshExpirationMs}")
     private long refreshExpirationMs;
@@ -29,164 +28,83 @@ public class JwtUtil {
     private Key signingKey;
 
     @PostConstruct
-    public void init() {
-        // ensure secret length is adequate for HS256/HS512; Keys.hmacShaKeyFor will throw if too short
-        signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    void init() {
+        // Support "base64:XXXX" secrets as well as plain text
+        byte[] keyBytes;
+        if (secret != null && secret.startsWith("base64:")) {
+            keyBytes = Base64.getDecoder().decode(secret.substring("base64:".length()));
+        } else {
+            keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        }
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("jwt.secret must be at least 32 bytes for HS256. Current=" + keyBytes.length);
+        }
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // ------------------------
-    // Token generation (overloads)
-    // ------------------------
-
-    /**
-     * Generate access token with a default role "USER".
-     * Useful for call sites that only pass username.
-     */
-    public String generateToken(String username) {
-        return generateToken(username, "USER");
+    private Key getSigningKey() {
+        return signingKey;
     }
 
-    /**
-     * Generate access token with explicit role.
-     * The role is stored in the token as a cleaned value (without ROLE_ prefix),
-     * e.g. "ADMIN" instead of "ROLE_ADMIN".
-     */
-    public String generateToken(String username, String role) {
-        String cleanedRole = cleanRole(role);
+    // ---------- Token Creation ----------
+    public String generateToken(String subject, String role) {
+        return buildToken(subject, role, expirationMs);
+    }
+
+    public String generateRefreshToken(String subject, String role) {
+        return buildToken(subject, role, refreshExpirationMs);
+    }
+
+    private String buildToken(String subject, String role, long validityMs) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
-                .setSubject(username)
-                .claim("role", cleanedRole)
+                .setSubject(subject)
+                .claim("role", role)
                 .setIssuedAt(new Date(now))
-                .setExpiration(new Date(now + jwtExpirationMs))
-                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .setExpiration(new Date(now + validityMs))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    /**
-     * Generate refresh token with a default role "USER".
-     */
-    public String generateRefreshToken(String username) {
-        return generateRefreshToken(username, "USER");
-    }
-
-    /**
-     * Generate refresh token with explicit role.
-     */
-    public String generateRefreshToken(String username, String role) {
-        String cleanedRole = cleanRole(role);
-        long now = System.currentTimeMillis();
-        return Jwts.builder()
-                .setSubject(username)
-                .claim("role", cleanedRole)
-                .setIssuedAt(new Date(now))
-                .setExpiration(new Date(now + refreshExpirationMs))
-                .signWith(signingKey, SignatureAlgorithm.HS256)
-                .compact();
-    }
-
-    // ------------------------
-    // Validation helpers
-    // ------------------------
-
-    /**
-     * Validate token signature and expiry (no user check).
-     */
+    // ---------- Validation & Claims ----------
     public boolean validateToken(String token) {
         try {
-            extractAllClaims(token); // will throw if invalid
-            return !isTokenExpired(token);
-        } catch (Exception ex) {
+            Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(token);
+            return true;
+        } catch (JwtException ex) {
             return false;
         }
     }
 
-    /**
-     * Validate token against provided UserDetails (username match + not expired).
-     */
-    public boolean validateToken(String token, UserDetails userDetails) {
-        if (token == null || userDetails == null) return false;
-        final String username = extractUsername(token);
-        return username != null && username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    public boolean validateToken(String token, String expectedSubject) {
+        if (!validateToken(token)) return false;
+        String actual = getSubjectFromToken(token);
+        return expectedSubject != null && expectedSubject.equals(actual);
     }
 
-    /**
-     * Validate token against username (string).
-     */
-    public boolean validateToken(String token, String username) {
-        if (token == null || username == null) return false;
-        final String extracted = extractUsername(token);
-        return extracted != null && extracted.equals(username) && !isTokenExpired(token);
-    }
-
-    // ------------------------
-    // Extraction helpers
-    // ------------------------
-
-    /**
-     * Extract username (subject) from token.
-     */
-    public String extractUsername(String token) {
+    public String getSubjectFromToken(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    /**
-     * Alias: extractEmail for older call sites that used extractEmail(...)
-     */
-    public String extractEmail(String token) {
-        return extractUsername(token);
+    public String getRoleFromToken(String token) {
+        return extractClaim(token, c -> c.get("role", String.class));
     }
 
-    /**
-     * Extract role claim. Could be "ADMIN" or "USER" (no ROLE_ prefix).
-     */
-    public String extractRole(String token) {
-        return extractClaim(token, claims -> claims.get("role", String.class));
-    }
-
-    public Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    // ------------------------
-    // Internal helpers
-    // ------------------------
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(signingKey)
+    public <T> T extractClaim(String token, Function<Claims, T> resolver) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+        return resolver.apply(claims);
     }
 
-    /**
-     * Public method to check expiry state.
-     */
-    public boolean isTokenExpired(String token) {
-        try {
-            Date exp = extractExpiration(token);
-            return exp.before(new Date());
-        } catch (Exception e) {
-            // treat parsing problems as expired/invalid
-            return true;
-        }
-    }
+    // ---------- Compatibility Helpers ----------
+    public String extractUsername(String token) { return getSubjectFromToken(token); }
+    public String getPhoneFromToken(String token) { return getSubjectFromToken(token); }
 
-    /**
-     * Normalize role string: remove ROLE_ prefix if present.
-     */
-    private String cleanRole(String role) {
-        if (role == null) return "USER";
-        role = role.trim();
-        if (role.startsWith("ROLE_")) {
-            return role.substring(5);
-        }
-        return role;
-    }
+    private static final Pattern EMAIL_RX =
+            Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", Pattern.CASE_INSENSITIVE);
+
+    public boolean isEmail(String s) { return s != null && EMAIL_RX.matcher(s).matches(); }
 }

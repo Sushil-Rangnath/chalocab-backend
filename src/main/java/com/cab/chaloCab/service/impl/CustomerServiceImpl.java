@@ -3,6 +3,7 @@ package com.cab.chaloCab.service.impl;
 import com.cab.chaloCab.dto.CustomerRequest;
 import com.cab.chaloCab.dto.CustomerResponse;
 import com.cab.chaloCab.entity.Customer;
+import com.cab.chaloCab.enums.Role;
 import com.cab.chaloCab.repository.CustomerRepository;
 import com.cab.chaloCab.service.CustomerService;
 import jakarta.transaction.Transactional;
@@ -35,6 +36,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .phone(request.getPhone())
                 .address(request.getAddress())
                 .deleted(false)
+                .role(Role.CUSTOMER)
                 .build();
 
         return mapToResponse(customerRepository.save(customer));

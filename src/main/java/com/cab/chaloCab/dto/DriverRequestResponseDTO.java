@@ -1,19 +1,27 @@
 package com.cab.chaloCab.dto;
 
-import com.cab.chaloCab.entity.DriverRequest;
-import com.cab.chaloCab.entity.Driver;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO returned after submitting/fetching a driver request.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DriverRequestResponseDTO {
-    private String status; // "success" or "failed"
-    private String message; // human-readable message
-    private DriverRequest driverRequest; // optional, include request details
-    private Driver driver; // optional, include driver details after approval
+
+    private String status;       // "success" or "failed"
+    private String message;      // human-readable message
+    private Long requestId;      // ID of DriverRequest
+    private String name;
+    private String phone;
+    private String licenseNumber;
+    private String vehicleRegistration;
+    private String vehicleType;
+    private String address;
+    private String requestStatus; // PENDING, APPROVED, REJECTED
 }

@@ -28,12 +28,14 @@ public class DriverRequestServiceImpl implements DriverRequestService {
 
     @Override
     public DriverRequestResponseDTO submitRequest(DriverRequestDTO dto) {
+        // Build entity from DTO
         DriverRequest request = DriverRequest.builder()
                 .name(dto.getName())
                 .email(dto.getEmail())
-                .phone(dto.getPhone())
+                .phoneNumber(dto.getPhone())
                 .licenseNumber(dto.getLicenseNumber())
                 .vehicleNumber(dto.getVehicleNumber())
+                .vehicleType(dto.getVehicleType())
                 .address(dto.getAddress())
                 .status(DriverRequestStatus.PENDING)
                 .build();
@@ -43,7 +45,14 @@ public class DriverRequestServiceImpl implements DriverRequestService {
         return DriverRequestResponseDTO.builder()
                 .status("success")
                 .message("Driver request submitted successfully")
-                .driverRequest(savedRequest)
+                .requestId(savedRequest.getId())
+                .name(savedRequest.getName())
+                .phone(savedRequest.getPhoneNumber())
+                .licenseNumber(savedRequest.getLicenseNumber())
+                .vehicleRegistration(savedRequest.getVehicleNumber())
+                .vehicleType(savedRequest.getVehicleType())
+                .address(savedRequest.getAddress())
+                .requestStatus(savedRequest.getStatus() != null ? savedRequest.getStatus().name() : DriverRequestStatus.PENDING.name())
                 .build();
     }
 
@@ -56,24 +65,31 @@ public class DriverRequestServiceImpl implements DriverRequestService {
         }
 
         request.setStatus(DriverRequestStatus.APPROVED);
-        requestRepo.save(request);
+        DriverRequest updated = requestRepo.save(request);
 
+        // Create Driver entity from request. Adjust fields as per your Driver entity.
         Driver driver = Driver.builder()
-                .name(request.getName())
-                .email(request.getEmail())
-                .phoneNumber(request.getPhone())
-                .licenseNumber(request.getLicenseNumber())
-                .vehicleNumber(request.getVehicleNumber())
+                .name(updated.getName())
+                .email(updated.getEmail())
+                .phoneNumber(updated.getPhoneNumber())
+                .licenseNumber(updated.getLicenseNumber())
+                .vehicleNumber(updated.getVehicleNumber()) // map to your Driver field name
                 .status(DriverStatus.APPROVED)
                 .build();
 
-        driverRepo.save(driver);
+        Driver savedDriver = driverRepo.save(driver);
 
         return DriverRequestResponseDTO.builder()
                 .status("success")
                 .message("Driver request approved and driver created")
-                .driverRequest(request)
-                .driver(driver)
+                .requestId(updated.getId())
+                .name(updated.getName())
+                .phone(updated.getPhoneNumber())
+                .licenseNumber(updated.getLicenseNumber())
+                .vehicleRegistration(updated.getVehicleNumber())
+                .vehicleType(updated.getVehicleType())
+                .address(updated.getAddress())
+                .requestStatus(updated.getStatus() != null ? updated.getStatus().name() : DriverRequestStatus.APPROVED.name())
                 .build();
     }
 
@@ -86,12 +102,19 @@ public class DriverRequestServiceImpl implements DriverRequestService {
         }
 
         request.setStatus(DriverRequestStatus.REJECTED);
-        requestRepo.save(request);
+        DriverRequest updated = requestRepo.save(request);
 
         return DriverRequestResponseDTO.builder()
                 .status("success")
                 .message("Driver request rejected successfully")
-                .driverRequest(request)
+                .requestId(updated.getId())
+                .name(updated.getName())
+                .phone(updated.getPhoneNumber())
+                .licenseNumber(updated.getLicenseNumber())
+                .vehicleRegistration(updated.getVehicleNumber())
+                .vehicleType(updated.getVehicleType())
+                .address(updated.getAddress())
+                .requestStatus(updated.getStatus() != null ? updated.getStatus().name() : DriverRequestStatus.REJECTED.name())
                 .build();
     }
 
@@ -110,12 +133,19 @@ public class DriverRequestServiceImpl implements DriverRequestService {
     public DriverRequestResponseDTO updateStatus(Long id, DriverRequestStatus status) {
         DriverRequest request = getRequestById(id);
         request.setStatus(status);
-        requestRepo.save(request);
+        DriverRequest updated = requestRepo.save(request);
 
         return DriverRequestResponseDTO.builder()
                 .status("success")
                 .message("Driver request " + status.name().toLowerCase())
-                .driverRequest(request)
+                .requestId(updated.getId())
+                .name(updated.getName())
+                .phone(updated.getPhoneNumber())
+                .licenseNumber(updated.getLicenseNumber())
+                .vehicleRegistration(updated.getVehicleNumber())
+                .vehicleType(updated.getVehicleType())
+                .address(updated.getAddress())
+                .requestStatus(updated.getStatus() != null ? updated.getStatus().name() : status.name())
                 .build();
     }
 

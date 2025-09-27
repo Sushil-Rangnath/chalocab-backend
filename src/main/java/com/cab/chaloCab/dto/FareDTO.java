@@ -1,6 +1,5 @@
 package com.cab.chaloCab.dto;
 
-import com.cab.chaloCab.enums.CabType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,7 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class FareDTO {
     private Long id;
-    private CabType cabType;
+    // changed from enum to String to allow dynamic cab types
+    private String cabType;
     private double baseFare;
     private double perKmFare;
 }

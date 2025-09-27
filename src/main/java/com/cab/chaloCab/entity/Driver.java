@@ -22,6 +22,7 @@ public class Driver {
     private String phoneNumber;
     private String licenseNumber;
     private String vehicleNumber;
+    private String role;
 
     private String address; // ✅ Added field
 

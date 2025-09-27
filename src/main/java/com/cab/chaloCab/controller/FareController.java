@@ -1,7 +1,6 @@
 package com.cab.chaloCab.controller;
 
 import com.cab.chaloCab.dto.FareDTO;
-import com.cab.chaloCab.enums.CabType;
 import com.cab.chaloCab.service.FareService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -10,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/fares")
+@RequestMapping("/api/flutter/fares")
 public class FareController {
 
     @Autowired
@@ -29,7 +28,7 @@ public class FareController {
      */
     @PutMapping("/update/{cabType}")
     public ResponseEntity<FareDTO> updateFare(
-            @PathVariable CabType cabType,
+            @PathVariable String cabType,
             @RequestBody FareDTO dto) {
         return ResponseEntity.ok(fareService.updateFare(cabType, dto.getBaseFare(), dto.getPerKmFare()));
     }
@@ -38,7 +37,7 @@ public class FareController {
      * Get fare by cab type
      */
     @GetMapping("/type/{cabType}")
-    public ResponseEntity<FareDTO> getFare(@PathVariable CabType cabType) {
+    public ResponseEntity<FareDTO> getFare(@PathVariable String cabType) {
         return ResponseEntity.ok(fareService.getFareByCabType(cabType));
     }
 
@@ -54,7 +53,7 @@ public class FareController {
      * Delete fare by cab type
      */
     @DeleteMapping("/{cabType}")
-    public ResponseEntity<Void> deleteFare(@PathVariable CabType cabType) {
+    public ResponseEntity<Void> deleteFare(@PathVariable String cabType) {
         fareService.deleteFare(cabType);
         return ResponseEntity.ok().build();
     }

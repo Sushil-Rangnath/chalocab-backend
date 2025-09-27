@@ -1,82 +1,68 @@
 package com.cab.chaloCab.entity;
 
 import com.cab.chaloCab.enums.BookingStatus;
+import com.cab.chaloCab.enums.BookingType;
+import com.cab.chaloCab.enums.CabType;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Getter
-@Setter
-@Builder
+@Table(name = "bookings")
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "bookings")
+@Builder
 public class Booking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Customer customer;
+    // Customer making the booking
+    @Column(nullable = false)
+    private Long customerId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "driver_id")
-    private Driver driver;
+    // Driver assigned (nullable until assigned)
+    private Long driverId;
 
-    @Column(name = "pickup_location")
-    private String pickupLocation;
-
-    @Column(name = "drop_location")
-    private String dropoffLocation;
-
-    @Column(name = "fare")
-    private Double fare;
-
-    @Column(name = "booking_time")
-    private LocalDateTime bookingTime;
-
-    @Column(name = "assigned_driver_id")
     private Long assignedDriverId;
 
+    // Booking type: CITY, OUTSTATION, RENTAL
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private BookingStatus status;
+    @Column(nullable = false)
+    private BookingType bookingType;
 
-    @Column(nullable = true)
-    private String sourceLocation;
+    @Column(name = "cab_type", nullable = false)
+    private String cabType;
 
-    @Column(nullable = true)
-    private String destinationLocation;
 
-    @Column(nullable = true)
-    private Boolean outsideStation;
+    // Common fields (City Ride)
+    private String pickupLocation;
+    private String dropLocation;
+    private Double distanceKm;
 
-    @Column(nullable = true)
+    // Outstation fields
+    private String fromCity;          // text area (free input)
+    private String toCity;            // text area (free input)
+    private LocalDate travelDate;     // date picker
+    private String additionalDetails; // textarea for extra info
+
+    // Rental (future: list cars/hourly rates)
+    private String rentalPackage;     // placeholder for rental plan
+
+    // Fare
+    private Double fare;
     private Double negotiatedFare;
 
-    @Column(nullable = false)
+    // Booking timing
+    private LocalDateTime bookingTime;
+
+    @Enumerated(EnumType.STRING)
+    private BookingStatus status;
+
+    // Soft delete flag
     private boolean deleted = false;
-
-    // Utility getters for DTO mapping
-    public Long getCustomerId() {
-        return customer != null ? customer.getId() : null;
-    }
-
-    public Long getDriverId() {
-        return driver != null ? driver.getId() : null;
-    }
-
-    public void setCustomerId(Long customerId) {
-        if (this.customer == null) this.customer = new Customer();
-        this.customer.setId(customerId);
-    }
-
-    public void setDriverId(Long driverId) {
-        if (this.driver == null) this.driver = new Driver();
-        this.driver.setId(driverId);
-    }
 }

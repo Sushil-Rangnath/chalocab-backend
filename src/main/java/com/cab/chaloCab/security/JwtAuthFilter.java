@@ -7,11 +7,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -23,63 +22,56 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
 
-    // Endpoints to skip authentication
-    private static final List<String> PUBLIC_ENDPOINTS = List.of(
-            "/api/admin/dashboard/summary",
-            "/api/auth/login",
-            "/api/auth/register"
-    );
-
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+                                    FilterChain chain) throws ServletException, IOException {
 
-        String path = request.getRequestURI();
-
-        // Skip JWT validation for public endpoints
-        if (PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // Allow CORS preflight requests
+        // Allow preflight requests
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            filterChain.doFilter(request, response);
+            chain.doFilter(request, response);
             return;
         }
 
-        final String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+        final String header = request.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            chain.doFilter(request, response);
             return;
         }
 
-        final String jwt = authHeader.substring(7);
-        String email = jwtUtil.extractUsername(jwt);
-        String role = jwtUtil.extractRole(jwt);
+        final String token = header.substring(7);
 
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            if (jwtUtil.validateToken(jwt)) {
-                String formattedRole = "ROLE_" + (role == null ? "USER" : role.toUpperCase());
+        String subject = null;
+        String role = null;
 
-                User principal = new User(
-                        email,
-                        "",
-                        Collections.singletonList(new SimpleGrantedAuthority(formattedRole))
-                );
-
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                principal,
-                                null,
-                                principal.getAuthorities()
-                        );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+        try {
+            if (!jwtUtil.validateToken(token)) {
+                chain.doFilter(request, response);
+                return;
             }
+            subject = jwtUtil.getSubjectFromToken(token);  // phone (for customers) or email (for admins)
+            role = jwtUtil.getRoleFromToken(token);        // ADMIN/DRIVER/USER/CUSTOMER
+        } catch (Exception e) {
+            // Token invalid/expired -> let Spring Security handle 401 downstream
+            chain.doFilter(request, response);
+            return;
         }
 
-        filterChain.doFilter(request, response);
+        if (subject != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+            String normalizedRole = (role != null && !role.trim().isEmpty()) ? role.trim().toUpperCase() : "USER";
+            List<SimpleGrantedAuthority> authorities =
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + normalizedRole));
+
+            // 🔑 Set subject (phone/email) directly as principal, so authentication.getName() returns it
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(subject, null, authorities);
+
+            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+            SecurityContextHolder.getContext().setAuthentication(auth);
+        }
+
+        chain.doFilter(request, response);
     }
 }

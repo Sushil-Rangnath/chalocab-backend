@@ -19,7 +19,7 @@ public class RefreshTokenController {
     @Autowired
     private UserRepository userRepository;
 
-    //@PostMapping("/refresh-token")
+    @PostMapping("/refresh-token")
     public ResponseEntity<AuthResponse> refreshToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
 
@@ -27,20 +27,25 @@ public class RefreshTokenController {
             return ResponseEntity.badRequest().build();
         }
 
-        String refreshToken = authHeader.substring(7); // Remove "Bearer "
+        String refreshToken = authHeader.substring(7);
 
         if (!jwtUtil.validateToken(refreshToken)) {
-            return ResponseEntity.status(401).build(); // Invalid token
+            return ResponseEntity.status(401).build(); // Invalid refresh token
         }
 
-        String email = jwtUtil.extractEmail(refreshToken);
-        User user = userRepository.findByEmail(email).orElse(null);
+        String subject = jwtUtil.getSubjectFromToken(refreshToken);
+        String role = jwtUtil.getRoleFromToken(refreshToken);
+
+        // Find user (match phone or email depending on subject)
+        User user = userRepository.findByPhoneNumber(subject)
+                .orElseGet(() -> userRepository.findByEmail(subject).orElse(null));
 
         if (user == null) {
             return ResponseEntity.status(404).build(); // User not found
         }
 
-        String newAccessToken = jwtUtil.generateToken(email);
+        String newAccessToken = jwtUtil.generateToken(subject, role);
+
         return ResponseEntity.ok(
                 new AuthResponse(newAccessToken, refreshToken, user.getRole(), user.isPhoneVerified())
         );

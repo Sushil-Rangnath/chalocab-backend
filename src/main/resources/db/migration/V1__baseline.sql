@@ -1,0 +1,2 @@
+-- Baseline migration
+-- This marks the existing schema as version 1
