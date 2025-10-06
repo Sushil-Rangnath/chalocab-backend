@@ -35,23 +35,24 @@ pipeline {
           string(credentialsId: 'FLYWAY_BASELINE_VERSION',    variable: 'SPRING_FLYWAY_BASELINE_VERSION')    // <<< REMOVE after first prod deploy
           // --------------------------------------------
         ]) {
-          sh """
-            set -euo pipefail
+          // Use bash explicitly so 'set -o pipefail' works on agents where /bin/sh != bash
+          sh '''#!/bin/bash
+set -euo pipefail
 
-            echo "📦 Ensuring deploy dir exists: ${DEPLOY_DIR}"
-            install -d -m 755 ${DEPLOY_DIR}
+echo "📦 Ensuring deploy dir exists: ${DEPLOY_DIR}"
+install -d -m 755 "${DEPLOY_DIR}"
 
-            echo "📁 Listing target directory:"
-            ls -lah target || true
+echo "📁 Listing target directory:"
+ls -lah target || true
 
-            echo "🧪 Verifying JAR exists: target/${JAR_NAME}"
-            test -f target/${JAR_NAME}
+echo "🧪 Verifying JAR exists: target/${JAR_NAME}"
+test -f "target/${JAR_NAME}"
 
-            echo "📤 Copying JAR to ${DEPLOY_DIR}/app.jar"
-            cp -f target/${JAR_NAME} ${DEPLOY_DIR}/app.jar
+echo "📤 Copying JAR to ${DEPLOY_DIR}/app.jar"
+cp -f "target/${JAR_NAME}" "${DEPLOY_DIR}/app.jar"
 
-            echo "📝 Writing runtime.env (secrets will be masked in Jenkins logs)"
-            cat > ${DEPLOY_DIR}/runtime.env <<'EOF'
+echo "📝 Writing runtime.env (secrets will be masked in Jenkins logs)"
+cat > "${DEPLOY_DIR}/runtime.env" <<'EOF'
 SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
 SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
 SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
@@ -61,17 +62,17 @@ FAST2SMS_API_KEY=${FAST2SMS_API_KEY}
 SPRING_FLYWAY_BASELINE_ON_MIGRATE=${SPRING_FLYWAY_BASELINE_ON_MIGRATE}  # <<< REMOVE after first prod deploy
 SPRING_FLYWAY_BASELINE_VERSION=${SPRING_FLYWAY_BASELINE_VERSION}        # <<< REMOVE after first prod deploy
 EOF
-            chmod 600 ${DEPLOY_DIR}/runtime.env
+chmod 600 "${DEPLOY_DIR}/runtime.env"
 
-            echo "🔍 runtime.env preview:"
-            sed -E 's/(PASSWORD=).*/\\1*****/; s/(JWT_SECRET=).*/\\1*****/; s/(FAST2SMS_API_KEY=).*/\\1*****/' ${DEPLOY_DIR}/runtime.env | cat
+echo "🔍 runtime.env preview (masked):"
+sed -E 's/(SPRING_DATASOURCE_PASSWORD=).*/\1*****/; s/(JWT_SECRET=).*/\1*****/; s/(FAST2SMS_API_KEY=).*/\1*****/' "${DEPLOY_DIR}/runtime.env" | cat
 
-            echo "🚀 Running deploy script"
-            bash ${DEPLOY_DIR}/deploy.sh
+echo "🚀 Running deploy script"
+bash "${DEPLOY_DIR}/deploy.sh"
 
-            echo "📜 Tail last 80 lines of app log:"
-            tail -n 80 ${LOG_FILE} || true
-          """
+echo "📜 Tail last 80 lines of app log:"
+tail -n 80 "${LOG_FILE}" || true
+'''
         }
       }
     }
