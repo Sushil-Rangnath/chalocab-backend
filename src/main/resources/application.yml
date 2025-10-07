@@ -80,7 +80,7 @@ spring:
     # password: rootadmin
   jpa:
     hibernate:
-      ddl-auto: validate     # NEVER change schema in prod automatically
+      ddl-auto: update     # NEVER change schema in prod automatically
     show-sql: false
 
 # Flyway will be added later; leaving out here to keep step 1 focused.
